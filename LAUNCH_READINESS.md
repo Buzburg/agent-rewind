@@ -19,3 +19,5 @@ Local checks used Linux x86-64, Python 3.12.14, Node 26.8.1, the installed Rust 
 - `tests`: PASS — test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s; test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s.
 
 Detailed command logs and setup diagnostics are retained in the private local launch-review workspace.
+
+Corrected CI branch filters: the default branch is `master`, while the old workflow only ran on `main`. Push and pull-request checks now cover the actual default branch.
