@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2021"
 authors = ["Buzburg AI <dev@buzburg.ai>"]
 description = "Instant zero-overhead copy-on-write undo and time machine for AI coding agents."
-license = "MIT OR Apache-2.0"
-repository = "https://github.com/buzburgai-arch/agent-rewind"
+license = "MIT"
+repository = "https://github.com/Buzburg/agent-rewind"
 keywords = ["ai-agent", "undo", "time-machine", "developer-tools", "checkpoint"]
 categories = ["command-line-utilities", "development-tools"]
 

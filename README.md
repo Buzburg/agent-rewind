@@ -1,10 +1,11 @@
 # agent-rewind ⏪
 
+**Release status: developer preview.** Tests cover the implemented snapshot and restore paths. Snapshot and restore time depends on file sizes and storage; this is not a zero-overhead or atomic filesystem snapshot guarantee. Test recovery on disposable data before relying on it. See [launch review](LAUNCH_READINESS.md).
+
 > **Instant Zero-Overhead Copy-on-Write Undo & Time Machine for AI Coding Agents**
 
-[![CI](https://github.com/buzburgai-arch/agent-rewind/actions/workflows/ci.yml/badge.svg)](https://github.com/buzburgai-arch/agent-rewind/actions)
-[![License: MIT OR Apache-2.0](https://img.shields.io/badge/License-MIT%20or%20Apache--2.0-blue.svg)](LICENSE)
-[![Crates.io](https://img.shields.io/badge/crates.io-v0.1.0-orange.svg)](https://crates.io/crates/agent-rewind)
+[![CI](https://github.com/Buzburg/agent-rewind/actions/workflows/ci.yml/badge.svg)](https://github.com/Buzburg/agent-rewind/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 `agent-rewind` is the missing safety net for developers pairing with AI coding agents (Claude Code, OpenAI Codex CLI, Cursor, Antigravity, Aider). It captures content-addressed, zero-latency snapshots of your repository state before and during agent interactions—allowing you to inspect file diffs and instantly rewind hallucinated changes in **<5ms**.
 
@@ -41,13 +42,10 @@
 
 ```bash
 # Cargo
-cargo install agent-rewind
+git clone https://github.com/Buzburg/agent-rewind.git
+cd agent-rewind
+cargo install --path . --locked
 
-# Homebrew (macOS / Linux)
-brew install buzburgai/tap/agent-rewind
-
-# Binary install
-curl -fsSL https://raw.githubusercontent.com/buzburgai-arch/agent-rewind/main/install.sh | sh
 ```
 
 ### Usage
@@ -97,4 +95,4 @@ cargo test
 
 ## 📄 License
 
-Dual-licensed under [MIT](LICENSE) or [Apache-2.0](LICENSE).
+Licensed under [MIT](LICENSE).
