@@ -1,3 +1,4 @@
+use crate::safe_paths::{checked_path, destination, invalid, workspace};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -27,6 +28,8 @@ pub struct Checkpoint {
     pub message: String,
     pub files: HashMap<String, FileRecord>,
     pub token_burn: Option<u64>,
+    #[serde(default)]
+    pub workspace_root: Option<PathBuf>,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -47,10 +50,11 @@ impl Engine {
 
     pub fn init(&self) -> std::io::Result<()> {
         let _rewind_path = self.root.join(REWIND_DIR);
-        let blobs_path = self.root.join(BLOBS_DIR);
+        workspace(&self.root)?;
+        let blobs_path = checked_path(&self.root.join(BLOBS_DIR))?;
         fs::create_dir_all(&blobs_path)?;
 
-        let manifest_path = self.root.join(MANIFEST_FILE);
+        let manifest_path = checked_path(&self.root.join(MANIFEST_FILE))?;
         if !manifest_path.exists() {
             let manifest = Manifest {
                 version: 1,
@@ -63,7 +67,7 @@ impl Engine {
     }
 
     pub fn load_manifest(&self) -> std::io::Result<Manifest> {
-        let manifest_path = self.root.join(MANIFEST_FILE);
+        let manifest_path = checked_path(&self.root.join(MANIFEST_FILE))?;
         if !manifest_path.exists() {
             self.init()?;
         }
@@ -74,14 +78,17 @@ impl Engine {
     }
 
     pub fn save_manifest(&self, manifest: &Manifest) -> std::io::Result<()> {
-        let manifest_path = self.root.join(MANIFEST_FILE);
+        let manifest_path = checked_path(&self.root.join(MANIFEST_FILE))?;
         let data = serde_json::to_string_pretty(manifest)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
         fs::write(manifest_path, data)
     }
 
     fn should_ignore(&self, path: &Path) -> bool {
-        let components: Vec<_> = path.components().map(|c| c.as_os_str().to_string_lossy()).collect();
+        let components: Vec<_> = path
+            .components()
+            .map(|c| c.as_os_str().to_string_lossy())
+            .collect();
         components.iter().any(|comp| {
             comp == ".git"
                 || comp == ".rewind"
@@ -104,7 +111,7 @@ impl Engine {
         hasher.update(&buffer);
         let hash = format!("{:x}", hasher.finalize());
 
-        let blob_path = self.root.join(BLOBS_DIR).join(&hash);
+        let blob_path = checked_path(&self.root.join(BLOBS_DIR).join(&hash))?;
         if !blob_path.exists() {
             fs::write(blob_path, &buffer)?;
         }
@@ -113,8 +120,22 @@ impl Engine {
     }
 
     pub fn get_blob_content(&self, hash: &str) -> std::io::Result<Vec<u8>> {
-        let blob_path = self.root.join(BLOBS_DIR).join(hash);
-        fs::read(blob_path)
+        if hash.len() != 64
+            || !hash
+                .bytes()
+                .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
+        {
+            return Err(invalid("Invalid checkpoint blob identifier"));
+        }
+        let blob_path = checked_path(&self.root.join(BLOBS_DIR).join(hash))?;
+        if !blob_path.is_file() {
+            return Err(invalid("Missing checkpoint blob or non-regular file"));
+        }
+        let bytes = fs::read(blob_path)?;
+        if format!("{:x}", Sha256::digest(&bytes)) != hash {
+            return Err(invalid("Checkpoint blob checksum mismatch"));
+        }
+        Ok(bytes)
     }
 
     pub fn create_checkpoint(
@@ -133,8 +154,10 @@ impl Engine {
                 let rel_path = path
                     .strip_prefix(&self.root)
                     .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?
-                    .to_string_lossy()
-                    .replace('\\', "/");
+                    .to_str()
+                    .ok_or_else(|| invalid("Checkpoint paths must be UTF-8"))?
+                    .replace(std::path::MAIN_SEPARATOR, "/");
+                destination(&self.root, &rel_path)?;
 
                 let (hash, size) = self.hash_and_store_blob(path)?;
                 files.insert(
@@ -151,9 +174,7 @@ impl Engine {
 
         let now = Utc::now();
         let checkpoint_id = format!("cp-{}-{}", manifest.checkpoints.len() + 1, now.timestamp());
-        let session = session_id
-            .unwrap_or(&manifest.current_session)
-            .to_string();
+        let session = session_id.unwrap_or(&manifest.current_session).to_string();
 
         let checkpoint = Checkpoint {
             id: checkpoint_id,
@@ -162,6 +183,7 @@ impl Engine {
             message: message.to_string(),
             files,
             token_burn,
+            workspace_root: Some(workspace(&self.root)?),
         };
 
         manifest.checkpoints.push(checkpoint.clone());

@@ -1,3 +1,4 @@
+mod safe_paths;
 mod checkpoint;
 mod diff;
 mod restore;

@@ -1,5 +1,7 @@
 # agent-rewind ⏪
 
+Snapshot restoration now validates paths and saved content before writing. Older unbound snapshots require manual recovery. See [snapshot recovery boundaries](SNAPSHOT_SAFETY.md).
+
 **Release status: developer preview.** Tests cover the implemented snapshot and restore paths. Snapshot and restore time depends on file sizes and storage; this is not a zero-overhead or atomic filesystem snapshot guarantee. Test recovery on disposable data before relying on it. See [launch review](LAUNCH_READINESS.md).
 
 > **Instant Zero-Overhead Copy-on-Write Undo & Time Machine for AI Coding Agents**

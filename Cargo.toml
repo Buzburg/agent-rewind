@@ -19,5 +19,4 @@ walkdir = "2.5"
 colored = "2.1"
 similar = { version = "2.6", features = ["inline"] }
 
-[dev-dependencies]
 tempfile = "3.17"
