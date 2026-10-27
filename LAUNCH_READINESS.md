@@ -1,3 +1,5 @@
+> Historical review. Current release scope and checks are in [RELEASE_VERIFICATION.md](RELEASE_VERIFICATION.md).
+
 # Launch readiness — agent-rewind
 
 Reviewed October 17, 2026. Visibility has not been changed by this review.

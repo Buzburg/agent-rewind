@@ -87,6 +87,17 @@ impl<'a> RestoreEngine<'a> {
                                 .as_file()
                                 .set_permissions(fs::metadata(&target_path)?.permissions())?;
                         }
+                        #[cfg(unix)]
+                        {
+                            use std::os::unix::fs::PermissionsExt;
+                            if checkpoint.files[&delta.path].is_executable {
+                                let mode =
+                                    temporary.as_file().metadata()?.permissions().mode() | 0o100;
+                                temporary
+                                    .as_file()
+                                    .set_permissions(fs::Permissions::from_mode(mode))?;
+                            }
+                        }
                         checked_path(&target_path)?;
                         // Replace the directory entry instead of truncating a shared hard link.
                         temporary
@@ -99,9 +110,6 @@ impl<'a> RestoreEngine<'a> {
             }
         }
 
-        // Clean up empty directories if any were left
-        self.cleanup_empty_dirs(&self.engine.root)?;
-
         println!(
             "{}",
             format!(
@@ -112,24 +120,6 @@ impl<'a> RestoreEngine<'a> {
             .bold()
         );
 
-        Ok(())
-    }
-
-    fn cleanup_empty_dirs(&self, dir: &Path) -> io::Result<()> {
-        if !dir.is_dir() {
-            return Ok(());
-        }
-        for entry in fs::read_dir(dir)? {
-            let entry = entry?;
-            let path = entry.path();
-            if path.is_dir() && checked_path(&path).is_ok() {
-                let name = path.file_name().unwrap_or_default().to_string_lossy();
-                if name != ".git" && name != ".rewind" && name != "target" {
-                    let _ = self.cleanup_empty_dirs(&path);
-                    let _ = fs::remove_dir(&path); // Only succeeds if empty
-                }
-            }
-        }
         Ok(())
     }
 }

@@ -1,8 +1,8 @@
-mod safe_paths;
 mod checkpoint;
 mod diff;
 mod restore;
 mod runner;
+mod safe_paths;
 mod tui;
 
 use clap::{Parser, Subcommand};
@@ -18,8 +18,10 @@ use tui::Dashboard;
 
 #[derive(Parser)]
 #[command(name = "agent-rewind")]
-#[command(about = "Instant zero-overhead copy-on-write undo and time machine for AI coding agents.")]
-#[command(version = "0.1.0")]
+#[command(
+    about = "Instant zero-overhead copy-on-write undo and time machine for AI coding agents."
+)]
+#[command(version = "0.1.1")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -120,7 +122,11 @@ fn main() {
                 match engine.get_latest_checkpoint() {
                     Ok(Some(cp)) => cp,
                     Ok(None) => {
-                        eprintln!("{}", "No checkpoints found. Create one first with `agent-rewind save`.".yellow());
+                        eprintln!(
+                            "{}",
+                            "No checkpoints found. Create one first with `agent-rewind save`."
+                                .yellow()
+                        );
                         process::exit(1);
                     }
                     Err(e) => {
@@ -132,7 +138,10 @@ fn main() {
                 match engine.get_checkpoint(&checkpoint) {
                     Ok(Some(cp)) => cp,
                     Ok(None) => {
-                        eprintln!("{}", format!("Checkpoint '{}' not found.", checkpoint).red());
+                        eprintln!(
+                            "{}",
+                            format!("Checkpoint '{}' not found.", checkpoint).red()
+                        );
                         process::exit(1);
                     }
                     Err(e) => {
@@ -144,7 +153,11 @@ fn main() {
 
             println!(
                 "{}",
-                format!("Comparing workspace against checkpoint '{}' ({}):", target_cp.id, target_cp.message).bold()
+                format!(
+                    "Comparing workspace against checkpoint '{}' ({}):",
+                    target_cp.id, target_cp.message
+                )
+                .bold()
             );
 
             let diff_engine = DiffEngine::new(&engine);
@@ -168,7 +181,10 @@ fn main() {
             let target_cp = match engine.get_checkpoint(&checkpoint) {
                 Ok(Some(cp)) => cp,
                 Ok(None) => {
-                    eprintln!("{}", format!("Checkpoint '{}' not found.", checkpoint).red());
+                    eprintln!(
+                        "{}",
+                        format!("Checkpoint '{}' not found.", checkpoint).red()
+                    );
                     process::exit(1);
                 }
                 Err(e) => {

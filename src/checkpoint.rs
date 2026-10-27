@@ -81,10 +81,15 @@ impl Engine {
         let manifest_path = checked_path(&self.root.join(MANIFEST_FILE))?;
         let data = serde_json::to_string_pretty(manifest)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
-        fs::write(manifest_path, data)
+        use std::io::Write;
+        let mut temporary = tempfile::NamedTempFile::new_in(manifest_path.parent().unwrap())?;
+        temporary.write_all(data.as_bytes())?;
+        temporary.as_file().sync_all()?;
+        temporary.persist(manifest_path).map_err(|e| e.error)?;
+        Ok(())
     }
 
-    fn should_ignore(&self, path: &Path) -> bool {
+    pub(crate) fn should_ignore(&self, path: &Path) -> bool {
         let components: Vec<_> = path
             .components()
             .map(|c| c.as_os_str().to_string_lossy())
@@ -148,7 +153,11 @@ impl Engine {
         let mut manifest = self.load_manifest()?;
 
         let mut files = HashMap::new();
-        for entry in WalkDir::new(&self.root).into_iter().filter_map(|e| e.ok()) {
+        for entry in WalkDir::new(&self.root)
+            .into_iter()
+            .filter_entry(|entry| !self.should_ignore(entry.path()))
+        {
+            let entry = entry?;
             let path = entry.path();
             if entry.file_type().is_file() && !self.should_ignore(path) {
                 let rel_path = path
@@ -166,7 +175,17 @@ impl Engine {
                         path: rel_path,
                         hash,
                         size,
-                        is_executable: false,
+                        is_executable: {
+                            #[cfg(unix)]
+                            {
+                                use std::os::unix::fs::PermissionsExt;
+                                fs::metadata(path)?.permissions().mode() & 0o111 != 0
+                            }
+                            #[cfg(not(unix))]
+                            {
+                                false
+                            }
+                        },
                     },
                 );
             }

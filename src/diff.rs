@@ -37,7 +37,11 @@ impl<'a> DiffEngine<'a> {
     ) -> std::io::Result<Vec<FileDelta>> {
         let mut current_files = BTreeMap::new();
 
-        for entry in WalkDir::new(&self.engine.root).into_iter().filter_map(|e| e.ok()) {
+        for entry in WalkDir::new(&self.engine.root)
+            .into_iter()
+            .filter_entry(|entry| !self.engine.should_ignore(entry.path()))
+        {
+            let entry = entry?;
             let path = entry.path();
             if entry.file_type().is_file() && !self.engine_should_ignore(path) {
                 let rel_path = path
@@ -103,7 +107,10 @@ impl<'a> DiffEngine<'a> {
     }
 
     fn engine_should_ignore(&self, path: &Path) -> bool {
-        let components: Vec<_> = path.components().map(|c| c.as_os_str().to_string_lossy()).collect();
+        let components: Vec<_> = path
+            .components()
+            .map(|c| c.as_os_str().to_string_lossy())
+            .collect();
         components.iter().any(|comp| {
             comp == ".git"
                 || comp == ".rewind"
@@ -119,11 +126,17 @@ impl<'a> DiffEngine<'a> {
 
     pub fn print_diff_summary(&self, deltas: &[FileDelta]) {
         if deltas.is_empty() {
-            println!("{}", "✔ Working tree is identical to checkpoint.".green().bold());
+            println!(
+                "{}",
+                "✔ Working tree is identical to checkpoint.".green().bold()
+            );
             return;
         }
 
-        println!("{}", format!("Found {} changed file(s):", deltas.len()).bold());
+        println!(
+            "{}",
+            format!("Found {} changed file(s):", deltas.len()).bold()
+        );
         for delta in deltas {
             match delta.change_type {
                 ChangeType::Added => {

@@ -179,3 +179,25 @@ fn conflicting_manifest_paths_fail_before_any_write() {
         .is_err());
     unchanged(&engine);
 }
+
+#[cfg(unix)]
+#[test]
+fn restore_preserves_executable_script_and_unrelated_empty_directory() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = tempfile::tempdir().unwrap();
+    let engine = agent_rewind::checkpoint::Engine::new(dir.path());
+    let script = dir.path().join("run.sh");
+    std::fs::write(&script, "#!/bin/sh\necho ok\n").unwrap();
+    std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+    std::fs::create_dir(dir.path().join("empty-user-dir")).unwrap();
+    let cp = engine.create_checkpoint("script", None, None).unwrap();
+    std::fs::remove_file(&script).unwrap();
+    agent_rewind::restore::RestoreEngine::new(&engine)
+        .restore_checkpoint(&cp)
+        .unwrap();
+    assert_ne!(
+        std::fs::metadata(&script).unwrap().permissions().mode() & 0o111,
+        0
+    );
+    assert!(dir.path().join("empty-user-dir").exists());
+}

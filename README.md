@@ -1,100 +1,51 @@
-# agent-rewind ⏪
+# Agent Rewind ⏪
 
-Snapshot restoration now validates paths and saved content before writing. Older unbound snapshots require manual recovery. See [snapshot recovery boundaries](SNAPSHOT_SAFETY.md).
+**AI broke your workspace? Rewind it.**
 
-**Release status: developer preview.** Tests cover the implemented snapshot and restore paths. Snapshot and restore time depends on file sizes and storage; this is not a zero-overhead or atomic filesystem snapshot guarantee. Test recovery on disposable data before relying on it. See [launch review](LAUNCH_READINESS.md).
+Capture a checkpoint before a coding agent makes changes, inspect the diff, and restore the saved file contents when an experiment goes wrong. Works around any CLI command and keeps its state in `.rewind/`, separate from Git.
 
-> **Instant Zero-Overhead Copy-on-Write Undo & Time Machine for AI Coding Agents**
+## Try it
 
-[![CI](https://github.com/Buzburg/agent-rewind/actions/workflows/ci.yml/badge.svg)](https://github.com/Buzburg/agent-rewind/actions)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+Requires a current stable Rust toolchain. Install from this repository:
 
-`agent-rewind` is the missing safety net for developers pairing with AI coding agents (Claude Code, OpenAI Codex CLI, Cursor, Antigravity, Aider). It captures content-addressed, zero-latency snapshots of your repository state before and during agent interactions—allowing you to inspect file diffs and instantly rewind hallucinated changes in **<5ms**.
-
-```
- ┌──────────────────────────────────────────────────────────────┐
- │ agent-rewind v0.1.0 ── Session: claude-code-294             │
- ├──────────────────────────────────────────────────────────────┤
- │  [01] 10:14:02  Init workspace analysis             ● OK     │
- │  [02] 10:14:18  Installed prisma & schema gen       ● OK     │
- │  [03] 10:14:35  Refactored auth controller          ● OK     │
- │  [04] 10:15:10  Deleted test fixtures (42 files)    ✖ BROKEN │
- │  [05] 10:15:22  Attempted emergency migration       ✖ FAILED │
- ├──────────────────────────────────────────────────────────────┤
- │  ► Selected [03] (Refactored auth controller)                │
- │  Files altered since checkpoint: 47 (38 uncommitted)         │
- │  Press [ENTER] to Rewind to Step 03 in 4ms                   │
- └──────────────────────────────────────────────────────────────┘
-```
-
----
-
-## ⚡ Why agent-rewind?
-
-- **Zero-Latency Content-Addressed Snapshots:** Deduplicates unchanged files and indexes entire workspace state in sub-5ms intervals.
-- **Selective File Diffing:** Shows real-time Myers unified diffs of exactly what the agent touched, added, or deleted.
-- **Atomic Rollback:** Reverses agent changes without touching your Git stash or wiping out intentional unstaged work.
-- **Process Wrapper:** Automatically takes pre-run and post-run checkpoints whenever you launch any command (`agent-rewind run -- <cmd>`).
-
----
-
-## 🚀 Quickstart
-
-### Installation
-
-```bash
-# Cargo
+```sh
 git clone https://github.com/Buzburg/agent-rewind.git
 cd agent-rewind
 cargo install --path . --locked
-
 ```
 
-### Usage
+In a disposable project first:
 
-```bash
-# 1. Initialize inside your repository
+```sh
 agent-rewind init
-
-# 2. Capture a clean checkpoint before letting an agent run
-agent-rewind save -m "Before agent refactor"
-
-# 3. Or automatically wrap your agent session
-agent-rewind run -- claude
-
-# 4. View timeline & session status
-agent-rewind status
-
-# 5. Review what changed
-agent-rewind diff latest --full
-
-# 6. Rewind to clean state if things went wrong
+agent-rewind save -m "Before the refactor"
+# Make changes, or wrap a coding session:
+agent-rewind run -- your-agent-command
+agent-rewind list
+agent-rewind diff 1 --full
 agent-rewind restore 1
 ```
 
----
+`restore 1` restores the **whole captured file set** and removes eligible files added after that checkpoint. It cannot distinguish your later edits from an agent's edits. Review the diff and stop writers before restoring.
 
-## 🛠 Commands
+## What you get
 
-| Command | Description |
-| :--- | :--- |
-| `agent-rewind init` | Initializes `.rewind` directory in the current workspace |
-| `agent-rewind save -m "<msg>"` | Takes a new snapshot checkpoint |
-| `agent-rewind list` / `status` | Shows checkpoint timeline and active session |
-| `agent-rewind diff [id] [--full]`| Shows changed files or unified line diff |
-| `agent-rewind restore <id>` | Instantly rolls back workspace to checkpoint state |
-| `agent-rewind run -- <cmd...>` | Wraps child process with automatic checkpoints |
+- Content-addressed SHA-256 storage that deduplicates unchanged file bytes.
+- Named checkpoints, readable diffs, and a command wrapper for pre-run checkpoints and post-run diffs.
+- Workspace binding, path validation, blob checksums, and per-file temporary replacement before recovery.
+- Recovery of deleted executable scripts on Unix.
 
----
+## Recovery boundaries
 
-## 🧪 Testing
+Developer beta. This is file-content recovery, not an atomic filesystem snapshot or a backup service. A disk failure or interruption during a multi-file restore can leave partial results. Snapshots exclude `.git`, `.rewind`, common dependency/build directories and caches; they do not implement `.gitignore`. Links, ownership, full permission metadata, and concurrent writers are outside the recovery contract. Snapshot timing depends on bytes and storage; there is no zero-overhead or fixed-latency guarantee.
 
-```bash
-cargo test
+Read [snapshot safety](SNAPSHOT_SAFETY.md) before using recovery on valuable work. Keep an independent backup. Old snapshots without workspace binding require manual recovery.
+
+## Verify
+
+```sh
+cargo test --locked
+cargo build --release --locked
 ```
 
----
-
-## 📄 License
-
-Licensed under [MIT](LICENSE).
+See [release verification](RELEASE_VERIFICATION.md) for checked behavior and remaining limits. MIT licensed. Built by Buzburg.
